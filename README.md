@@ -1,3 +1,76 @@
+## grafting with learnable layer selection
+
+- install requirements
+
+```
+pip install -r requirements.txt
+```
+
+- install casual conv1d
+
+```
+cd demo_notebooks
+git clone https://github.com/Dao-AILab/causal-conv1d.git
+git config --global --add safe.directory causal-conv1d
+cd causal-conv1d
+git checkout f8c2467
+pip install . 
+```
+
+- install flash attn
+
+```
+pip install flash-attn --no-build-isolation --no-cache-dir 
+```
+
+
+- image encoding for training data
+-- code from https://github.com/VainF/TinyFusion/
+
+```
+torchrun --nnodes=1 --nproc_per_node=1 extract_features.py --model DiT-XL/2 --data-path data/imagenet/train --features-path data/imagenet_encoded
+```
+
+
+
+- layer selection training
+-- layer selection result is printed to log, and make new config file for except selceted layers 
+-- ex. configs/50p_graftfusion75_swa.yaml
+-- if selected layer is 0, 3, 4, 6, 8, 9, 12, 13, 16, 17, 20, 23, 24, 26 than write 1,2,5,7,10,11,14,15,18,19,21,22,25,27 in config file
+
+```
+torchrun --nnodes=1 --nproc_per_node=8 prune_by_learning.py   --load-weight pretrained/DiT-XL-2-256x256.pt   --data-path data/imagenet_encoded   --epochs 6   --global-batch-size 64   --delta-w   --lora --config  ../configs/75p_swa.yaml --prefix swa_75_50_layerselection --ckpt-every 100000
+```
+
+
+
+- Final fintuneing
+
+```
+torchrun --nnodes=1 --nproc_per_node=8 finetune_tinyfusion.py --model DiT-XL/2 --data-path data/imagenet_encoded --epochs 20 --global-batch-size 64 --prefix 50p_swa_graftfusion75_finetune --config  ../configs/50p_graftfusion75_swa.yaml --ckpt-every 40000
+```
+
+
+
+
+- Inference (finetuned model)
+
+```
+torchrun --nnodes=1 --nproc_per_node=8 sample_ddp_finetuned.py --num-fid-samples 5000 --config-filepath ../configs/50p_graftfusion75_swa.yaml --graft-fusion-ckpt-path path/to/checkpoints/ckpt.pt
+```
+
+
+
+
+
+
+
+
+
+## Baseline grafting paper
+
+===
+
 <h1 align='center' style="text-align:center; font-weight:bold; font-size:2.0em;letter-spacing:2.0px;">
                 Exploring Diffusion Transformer Designs via Grafting</h1>      
 <p align='center' style="text-align:center;font-size:1.25em;">
