@@ -17,7 +17,7 @@ import torch.nn as nn
 import numpy as np
 import math
 from timm.models.vision_transformer import PatchEmbed, Attention, Mlp
-import itertools
+
 
 def modulate(x, shift, scale):
     return x * (1 + scale.unsqueeze(1)) + shift.unsqueeze(1)
@@ -103,13 +103,6 @@ class LabelEmbedder(nn.Module):
 #                                 Core DiT Model                                #
 #################################################################################
 
-#dummy module which prints only 0 on forward pass
-class DummyModule(nn.Module):
-    def __init__(self):
-        super().__init__()
-    def forward(self, x, *args, **kwargs):
-        return torch.zeros_like(x)
-
 class DiTBlock(nn.Module):
     """
     A DiT block with adaptive layer norm zero (adaLN-Zero) conditioning.
@@ -126,20 +119,11 @@ class DiTBlock(nn.Module):
             nn.SiLU(),
             nn.Linear(hidden_size, 6 * hidden_size, bias=True)
         )
-        self.attn_grafting = DummyModule()
-
 
 
     def forward(self, x, c):
         shift_msa, scale_msa, gate_msa, shift_mlp, scale_mlp, gate_mlp = self.adaLN_modulation(c).chunk(6, dim=1)
         x = x + gate_msa.unsqueeze(1) * self.attn(modulate(self.norm1(x), shift_msa, scale_msa))
-        x = x + gate_mlp.unsqueeze(1) * self.mlp(modulate(self.norm2(x), shift_mlp, scale_mlp))
-        return x
-
-    def forward_with_masking(self, x, c, mask):
-        shift_msa, scale_msa, gate_msa, shift_mlp, scale_mlp, gate_mlp = self.adaLN_modulation(c).chunk(6, dim=1)
-        t = modulate(self.norm1(x), shift_msa, scale_msa)
-        x = x + gate_msa.unsqueeze(1) * ( mask * self.attn(t) + (1 - mask) * self.attn_grafting(t))
         x = x + gate_mlp.unsqueeze(1) * self.mlp(modulate(self.norm2(x), shift_mlp, scale_mlp))
         return x
 
@@ -180,8 +164,6 @@ class DiT(nn.Module):
         class_dropout_prob=0.1,
         num_classes=1000,
         learn_sigma=True,
-        groups = [[2,4] for _ in range(7)],
-        pinned_layers = [[0] for _ in range(7)],
     ):
         super().__init__()
         self.learn_sigma = learn_sigma
@@ -189,9 +171,6 @@ class DiT(nn.Module):
         self.out_channels = in_channels * 2 if learn_sigma else in_channels
         self.patch_size = patch_size
         self.num_heads = num_heads
-        self.hidden_size = hidden_size
-        self.depth = depth
-        self.mlp_ratio=mlp_ratio
 
         self.x_embedder = PatchEmbed(input_size, patch_size, in_channels, hidden_size, bias=True)
         self.t_embedder = TimestepEmbedder(hidden_size)
@@ -203,41 +182,6 @@ class DiT(nn.Module):
         self.blocks = nn.ModuleList([
             DiTBlock(hidden_size, num_heads, mlp_ratio=mlp_ratio) for _ in range(depth)
         ])
-
-        def generate_binary_tensor(N, M, pinned_index=[]):
-            # Create all possible binary combinations of length M with N ones
-            combinations = list(itertools.combinations(range(M), N))
-
-            #only keep combinations which have pinned layers
-            if len(pinned_index) > 0:
-                filtered_combinations = []
-                for combo in combinations:
-                    if all(pinned in combo for pinned in pinned_index):
-                        filtered_combinations.append(combo)
-                combinations = filtered_combinations
-
-            # Create a tensor to store the result
-            result = torch.zeros((len(combinations), M), dtype=torch.float32)
-            # Fill in the ones according to the combinations
-
-            for i, indices in enumerate(combinations):
-                result[i, torch.tensor(indices)] = 1
-            return result
-
-        options = []
-        gates = []
-        for (N, M), pinned in zip(groups, pinned_layers):
-            opt = generate_binary_tensor(N, M, pinned_index=pinned).to(self.pos_embed.device)
-            options.append(opt)
-            g = nn.Parameter(torch.randn(1, opt.shape[0]), requires_grad=True)
-            torch.nn.init.constant_(g, 0.02)
-            gates.append(g)
-        self.options = options
-        self.gumbel_gates = nn.ParameterList(gates).to(self.pos_embed.device)
-    
-        self.tau = 1.0
-        self.scaling = 1.0
-
         self.final_layer = FinalLayer(hidden_size, patch_size, self.out_channels)
         self.initialize_weights()
 
@@ -291,6 +235,12 @@ class DiT(nn.Module):
         x = torch.einsum('nhwpqc->nchpwq', x)
         imgs = x.reshape(shape=(x.shape[0], c, h * p, h * p))
         return imgs
+    
+    def ckpt_wrapper(self, module):
+        def ckpt_forward(*inputs):
+            outputs = module(*inputs)
+            return outputs
+        return ckpt_forward
 
     def forward(self, x, t, y):
         """
@@ -303,19 +253,10 @@ class DiT(nn.Module):
         t = self.t_embedder(t)                   # (N, D)
         y = self.y_embedder(y, self.training)    # (N, D)
         c = t + y                                # (N, D)
-
-        N = x.shape[0]
-        layer_id = 0
-        for i in range(len(self.gumbel_gates)):
-            gate = self.gumbel_gates[i]
-            opt = self.options[i]
-            gate = torch.nn.functional.gumbel_softmax(gate.repeat(N, 1) * self.scaling, dim=1, tau=self.tau, hard=True) # N, 6
-            mask = gate @ opt.to(gate.device) # N x M
-            for j in range(mask.shape[1]):
-                x = self.blocks[layer_id].forward_with_masking(x, c, mask[:, j].unsqueeze(1).unsqueeze(1))
-                #x = self.blocks[layer_id](x, c) * mask[:, j].unsqueeze(1).unsqueeze(1) + x * (1 - mask[:, j].unsqueeze(1).unsqueeze(1))
-                layer_id += 1
-            
+        for block in self.blocks:
+            #x = torch.utils.checkpoint.checkpoint(self.ckpt_wrapper(block), x, c)       # (N, T, D)
+            #x, _ = torch.utils.checkpoint.checkpoint(self.ckpt_wrapper(block), x, c)       # (N, T, D)
+            x = block(x, c)
         x = self.final_layer(x, c)                # (N, T, patch_size ** 2 * out_channels)
         x = self.unpatchify(x)                   # (N, out_channels, H, W)
         return x

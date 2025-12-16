@@ -7,23 +7,30 @@ operator:
 sample_config:
   seed: 0
   dit_model_name: DiT-XL/2
-  grafted_dit_ckpt_path: ../grafted_models/dit-xl2-mha-swa-50p-fid2.62_ablation/model.pt
-  samples_save_dir: results/dit-xl2-mha-swa-50p-fid2.62_ablation
+  grafted_dit_ckpt_path: ../grafted_models/dit-xl2-mha-swa-75p-fid3.09/model.pt
+  samples_save_dir: results/dit-xl2-mha-swa-75p-fid3.09
   image_size: 256
   graft_indexes:
     - 1
+    - 2
     - 3
     - 5
+    - 6
     - 7
     - 9
+    - 10
     - 11
     - 13
+    - 14
     - 15
     - 17
+    - 18
     - 19
     - 21
+    - 22
     - 23
     - 25
+    - 26
     - 27
   graft_weights:
 
