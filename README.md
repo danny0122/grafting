@@ -57,12 +57,10 @@ pip install pytorch-fid
 python -m pytorch_fid --device cuda:0 VIRTUAL_imagenet256_labeled.npz image_directory_name
 ```
 
-<br><br>
-
-===
+<br><br><br>
 
 
-===
+
 
 
 #### Others
@@ -114,7 +112,6 @@ torchrun --nnodes=1 --nproc_per_node=8 finetune_tinyfusion.py --model DiT-XL/2 -
 ## Baseline grafting paper
 
 
-===
 
 <h1 align='center' style="text-align:center; font-weight:bold; font-size:2.0em;letter-spacing:2.0px;">
                 Exploring Diffusion Transformer Designs via Grafting</h1>      
