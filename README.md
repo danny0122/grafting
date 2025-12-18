@@ -1,5 +1,8 @@
 ## grafting with learnable layer selection
 
+
+### requirements install
+
 - install requirements
 
 ```
@@ -22,6 +25,8 @@ pip install .
 ```
 pip install flash-attn --no-build-isolation --no-cache-dir 
 ```
+
+### inference & evaluate
 
 - Inference (finetuned model)
 
@@ -46,12 +51,9 @@ python -m pytorch_fid --device cuda:0 VIRTUAL_imagenet256_labeled.npz image_dire
 
 ===
 ===
-===
-===
-===
 
 
-
+#### others
 
 
 
