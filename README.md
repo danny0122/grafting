@@ -34,14 +34,15 @@ pip install flash-attn --no-build-isolation --no-cache-dir
 torchrun --nnodes=1 --nproc_per_node=4 sample_ddp_finetuned.py --num-fid-samples 5000 --config-filepath ../configs/50p_graftfusion75_swa.yaml --graft-fusion-ckpt-path path/to/checkpoints/ckpt.pt
 ```
 
-- FID
+- FID evaluation
+ - install
 
 ```
 pip install pytorch-fid
 ```
 
-- VIRTUAL_imagenet256_labeled.npz : https://openaipublic.blob.core.windows.net/diffusion/jul-2021/ref_batches/imagenet/256/VIRTUAL_imagenet256_labeled.npz
-- https://github.com/openai/guided-diffusion/blob/main/evaluations/README.md
+ - download file : VIRTUAL_imagenet256_labeled.npz - https://openaipublic.blob.core.windows.net/diffusion/jul-2021/ref_batches/imagenet/256/VIRTUAL_imagenet256_labeled.npz
+ - reference : https://github.com/openai/guided-diffusion/blob/main/evaluations/README.md
 
 
 ```
