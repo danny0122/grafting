@@ -35,15 +35,15 @@ torchrun --nnodes=1 --nproc_per_node=4 sample_ddp_finetuned.py --num-fid-samples
 ```
 
 - FID evaluation
- - install
+  - download file : VIRTUAL_imagenet256_labeled.npz - https://openaipublic.blob.core.windows.net/diffusion/jul-2021/ref_batches/imagenet/256/VIRTUAL_imagenet256_labeled.npz
+  - reference : https://github.com/openai/guided-diffusion/blob/main/evaluations/README.md
+  - install
 
 ```
 pip install pytorch-fid
 ```
-
- - download file : VIRTUAL_imagenet256_labeled.npz - https://openaipublic.blob.core.windows.net/diffusion/jul-2021/ref_batches/imagenet/256/VIRTUAL_imagenet256_labeled.npz
- - reference : https://github.com/openai/guided-diffusion/blob/main/evaluations/README.md
-
+  
+  - FID calculation
 
 ```
 python -m pytorch_fid --device cuda:0 VIRTUAL_imagenet256_labeled.npz image_directory_name
