@@ -23,6 +23,40 @@ pip install .
 pip install flash-attn --no-build-isolation --no-cache-dir 
 ```
 
+- Inference (finetuned model)
+
+```
+torchrun --nnodes=1 --nproc_per_node=4 sample_ddp_finetuned.py --num-fid-samples 5000 --config-filepath ../configs/50p_graftfusion75_swa.yaml --graft-fusion-ckpt-path path/to/checkpoints/ckpt.pt
+```
+
+- FID
+
+```
+pip install pytorch-fid
+```
+
+- VIRTUAL_imagenet256_labeled.npz : https://openaipublic.blob.core.windows.net/diffusion/jul-2021/ref_batches/imagenet/256/VIRTUAL_imagenet256_labeled.npz
+- https://github.com/openai/guided-diffusion/blob/main/evaluations/README.md
+
+
+```
+python -m pytorch_fid --device cuda:0 VIRTUAL_imagenet256_labeled.npz image_directory_name
+```
+
+
+===
+===
+===
+===
+===
+
+
+
+
+
+
+
+
 
 - image encoding for training data
  - code from https://github.com/VainF/TinyFusion/
@@ -53,11 +87,7 @@ torchrun --nnodes=1 --nproc_per_node=8 finetune_tinyfusion.py --model DiT-XL/2 -
 
 
 
-- Inference (finetuned model)
 
-```
-torchrun --nnodes=1 --nproc_per_node=8 sample_ddp_finetuned.py --num-fid-samples 5000 --config-filepath ../configs/50p_graftfusion75_swa.yaml --graft-fusion-ckpt-path path/to/checkpoints/ckpt.pt
-```
 
 
 

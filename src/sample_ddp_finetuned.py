@@ -31,7 +31,7 @@ from torchsummary import summary
 
 from utils import *
 from itertools import islice
-from graft import graft_dit, graft_dit_finetune
+from graft import graft_dit, graft_dit_finetune,graft_dit_finetune_inference
 
 
 import torchtune
