@@ -63,7 +63,7 @@ python -m pytorch_fid --device cuda:0 VIRTUAL_imagenet256_labeled.npz image_dire
 
 
 
-#### Others
+## Others(encoding, training, etc...)
 
 
 
